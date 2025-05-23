@@ -1,1 +1,1 @@
-<h1>Jungle Growth Tracker Public</h1>
+<h1>Jungle Growth Tracker</h1>
