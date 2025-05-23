@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3>{{ plant.name }}</h3>
+                <p><strong>Jungle Type:</strong> {{ plant.get_jungle_type_display }}</p>
+                <p><strong>Planted On:</strong> {{ plant.date_planted }}</p>
+                
+                <a href="{% url 'upload_plant_image' plant.id %}" class="btn btn-success mt-2">
+                    Upload New Image
+                </a>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>Growth Progress</h5>
+            </div>
+            <div class="card-body">
+                {% if images %}
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ images.0.health_score }}%" 
+                             aria-valuenow="{{ images.0.health_score }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ images.0.health_score }}%
+                        </div>
+                    </div>
+                    <p>Last analysis: {{ images.0.analysis }}</p>
+                {% else %}
+                    <p>No images uploaded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <h4>Plant Images</h4>
+        <div class="row">
+            {% for image in images %}
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <img src="{{ image.image.url }}" class="card-img-top" alt="{{ plant.name }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ image.date_uploaded }}</h5>
+                        <p class="card-text">
+                            <strong>Health Score:</strong> {{ image.health_score }}%<br>
+                            <strong>Growth:</strong> 
+                            {% if image.growth_percentage > 0 %}
+                                <span class="text-success">+{{ image.growth_percentage }}%</span>
+                            {% elif image.growth_percentage < 0 %}
+                                <span class="text-danger">{{ image.growth_percentage }}%</span>
+                            {% else %}
+                                {{ image.growth_percentage }}%
+                            {% endif %}
+                        </p>
+                        <p class="card-text"><small>{{ image.analysis }}</small></p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    No images uploaded yet. <a href="{% url 'upload_plant_image' plant.id %}">Upload the first image!</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

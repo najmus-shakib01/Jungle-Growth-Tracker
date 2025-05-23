@@ -1,0 +1,179 @@
+{% extends 'base.html' %} {% load static %} {% block content %}
+<div class="row">
+  <div class="col-md-8">
+    <h2>Your Jungle Plants</h2>
+    <div class="row" id="plants-container">
+      {% for plant in plants %}
+      <div class="col-md-6 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">{{ plant.name }}</h5>
+            <p class="card-text">{{ plant.get_jungle_type_display }} Jungle</p>
+            <a
+              href="{% url 'plant_detail' plant.id %}"
+              class="btn btn-sm btn-success"
+              >View Details</a
+            >
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">
+          You don't have any plants yet.
+          <a href="{% url 'add_plant' %}">Add your first plant!</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Jungle Weather Forecast</h5>
+      </div>
+      <div class="card-body" id="weather-container">
+        {% if weather %}
+        <div class="weather-report">
+          <h4>{{ weather.get_weather_type_display }}</h4>
+          <p><strong>Temperature:</strong> {{ weather.temperature }}°C</p>
+          <p><strong>Humidity:</strong> {{ weather.humidity }}%</p>
+          <p>{{ weather.forecast }}</p>
+          <p class="text-muted"><em>{{ weather.animal_activity }}</em></p>
+          <small class="text-muted"
+            >Updated: {{ weather.created_at|timesince }} ago</small
+          >
+        </div>
+        {% else %}
+        <p>No weather data available.</p>
+        {% endif %}
+      </div>
+      <div class="card-footer">
+        <button id="update-weather" class="btn btn-sm btn-primary">
+          Update Weather
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4">
+  <div class="card">
+    <div class="card-header bg-info text-white">
+      <h5 class="mb-0">Real-time Updates</h5>
+    </div>
+    <div class="card-body">
+      <div id="updates-container" class="updates-list"></div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const plantSocket = new WebSocket(
+      `ws://${window.location.host}/ws/plant_updates/`
+    );
+
+    const weatherSocket = new WebSocket(
+      `ws://${window.location.host}/ws/weather_updates/`
+    );
+
+    const updatesContainer = document.getElementById("updates-container");
+
+    if (updatesContainer.children.length === 0) {
+      updatesContainer.innerHTML = `
+            <div class="alert alert-secondary">
+                No updates yet. Add plants or upload images to see activity.
+            </div>
+        `;
+    }
+
+    plantSocket.onerror = function (error) {
+      console.error("Plant WebSocket Error:", error);
+      updatesContainer.innerHTML = `
+            <div class="alert alert-danger">
+                Connection error. Please refresh the page.
+            </div>
+        `;
+    };
+
+    weatherSocket.onerror = function (error) {
+      console.error("Weather WebSocket Error:", error);
+    };
+
+    plantSocket.onmessage = function (e) {
+      try {
+        const data = JSON.parse(e.data);
+        console.log("Received data:", data); 
+
+        if (data.type === "plant.update") {
+          const eventData = data.data;
+          const container = document.getElementById("updates-container");
+
+          const emptyAlert = container.querySelector(".alert-secondary");
+          if (emptyAlert) emptyAlert.remove();
+
+          const updateElement = document.createElement("div");
+          updateElement.className = "alert alert-info mb-2";
+          updateElement.innerHTML = `
+                <strong>${eventData.time}</strong>: ${
+            eventData.message || eventData.event
+          }
+            `;
+          container.prepend(updateElement);
+        }
+      } catch (error) {
+        console.error("Error processing message:", error);
+      }
+    };
+
+    weatherSocket.onmessage = function (e) {
+      try {
+        const data = JSON.parse(e.data);
+        console.log("Weather update received:", data);
+
+        if (data.type === "weather.update") {
+          const weatherData = data.data;
+          document.getElementById("weather-container").innerHTML = `
+                    <h4>${weatherData.weather}</h4>
+                    <p><strong>Temp:</strong> ${weatherData.temp}°C</p>
+                    <p><strong>Humidity:</strong> ${weatherData.humidity}%</p>
+                    <p>${weatherData.forecast}</p>
+                    <p class="text-muted"><em>${weatherData.activity}</em></p>
+                    <small class="text-muted">Updated: ${weatherData.time}</small>
+                `;
+        }
+      } catch (error) {
+        console.error("Error processing weather update:", error);
+      }
+    };
+
+    document
+      .getElementById("update-weather")
+      .addEventListener("click", function () {
+        fetch("/generate-weather/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }).catch((error) => console.error("Error updating weather:", error));
+      });
+
+    const checkConnection = setInterval(() => {
+      if (plantSocket.readyState === WebSocket.CLOSED) {
+        console.log("Reconnecting plant WebSocket...");
+      }
+    }, 5000);
+  });
+</script>
+
+<style>
+  #updates-container {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+</style>
+{% endblock %}
